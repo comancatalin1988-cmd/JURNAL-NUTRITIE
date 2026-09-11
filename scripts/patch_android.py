@@ -7,11 +7,28 @@ template = root / "android-template" / "app" / "src" / "main" / "java" / "com" /
 target = android / "app" / "src" / "main" / "java" / "com" / "jurnalnutritie" / "app"
 target.mkdir(parents=True, exist_ok=True)
 
+generated_java = target / "MainActivity.java"
+if generated_java.exists():
+    generated_java.unlink()
+
 for name in ("MainActivity.kt", "HealthConnectPlugin.kt"):
     shutil.copy2(template / name, target / name)
 
+root_build_file = android / "build.gradle"
+root_build = root_build_file.read_text()
+if "kotlin-gradle-plugin" not in root_build:
+    root_build = root_build.replace(
+        "classpath 'com.android.tools.build:gradle:",
+        "classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20'\n"
+        "        classpath 'com.android.tools.build:gradle:",
+        1,
+    )
+    root_build_file.write_text(root_build)
+
 build_file = android / "app" / "build.gradle"
 build_text = build_file.read_text()
+if "org.jetbrains.kotlin.android" not in build_text:
+    build_text = "apply plugin: 'org.jetbrains.kotlin.android'\n" + build_text
 build_text = build_text.replace(
     "minSdkVersion rootProject.ext.minSdkVersion",
     "minSdkVersion 26",
