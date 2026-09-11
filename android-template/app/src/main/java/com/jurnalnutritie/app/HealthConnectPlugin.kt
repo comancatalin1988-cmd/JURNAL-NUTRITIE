@@ -1,6 +1,7 @@
 package com.jurnalnutritie.app
 
 import androidx.activity.result.ActivityResultLauncher
+import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.PermissionController
@@ -36,15 +37,24 @@ class HealthConnectPlugin : Plugin() {
         }
     }
 
+    private fun isHealthConnectAvailable(): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
+            HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
+    }
+
     private fun client(): HealthConnectClient? {
-        val status = HealthConnectClient.getSdkStatus(context)
-        return if (status == HealthConnectClient.SDK_AVAILABLE) HealthConnectClient.getOrCreate(context) else null
+        if (!isHealthConnectAvailable()) return null
+        return try {
+            HealthConnectClient.getOrCreate(context)
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     @PluginMethod
     fun isAvailable(call: PluginCall) {
         val ret = JSObject()
-        ret.put("available", HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE)
+        ret.put("available", isHealthConnectAvailable())
         call.resolve(ret)
     }
 
