@@ -12,6 +12,11 @@ for name in ("MainActivity.kt", "HealthConnectPlugin.kt"):
 
 build_file = android / "app" / "build.gradle"
 build_text = build_file.read_text()
+build_text = build_text.replace(
+    "minSdkVersion rootProject.ext.minSdkVersion",
+    "minSdkVersion 26",
+    1,
+)
 marker = "dependencies {"
 dependencies = (
     'dependencies {\n'
