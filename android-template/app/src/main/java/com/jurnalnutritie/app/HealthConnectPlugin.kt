@@ -1,11 +1,9 @@
 package com.jurnalnutritie.app
 
 import androidx.activity.result.ActivityResultLauncher
-import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.PermissionController
-import androidx.health.connect.client.aggregate.AggregateMetric
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -31,48 +29,50 @@ class HealthConnectPlugin : Plugin() {
         ) { granted ->
             val call = pendingPermissionCall ?: return@registerForActivityResult
             pendingPermissionCall = null
-            val ret = JSObject()
-            ret.put("granted", granted.contains(HealthPermission.getReadPermission(StepsRecord::class)))
-            call.resolve(ret)
+            val permission = HealthPermission.getReadPermission(StepsRecord::class)
+            call.resolve(JSObject().put("granted", granted.contains(permission)))
         }
     }
 
-    private fun isHealthConnectAvailable(): Boolean {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
-            HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
-    }
+    private fun sdkStatus(): Int = HealthConnectClient.getSdkStatus(context)
 
-    private fun client(): HealthConnectClient? {
-        if (!isHealthConnectAvailable()) return null
-        return try {
-            HealthConnectClient.getOrCreate(context)
-        } catch (_: Throwable) {
-            null
-        }
-    }
+    private fun client(): HealthConnectClient? =
+        if (sdkStatus() == HealthConnectClient.SDK_AVAILABLE) HealthConnectClient.getOrCreate(context) else null
 
     @PluginMethod
     fun isAvailable(call: PluginCall) {
-        val ret = JSObject()
-        ret.put("available", isHealthConnectAvailable())
-        call.resolve(ret)
+        try {
+            val status = sdkStatus()
+            call.resolve(
+                JSObject()
+                    .put("available", status == HealthConnectClient.SDK_AVAILABLE)
+                    .put("status", status)
+            )
+        } catch (t: Throwable) {
+            call.reject("Verificarea Health Connect a eșuat: ${t.message ?: t.javaClass.simpleName}", Exception(t))
+        }
     }
 
     @PluginMethod
     fun requestStepsPermission(call: PluginCall) {
-        val c = client()
-        if (c == null) {
-            call.resolve(JSObject().put("granted", false))
-            return
-        }
-        val permission = HealthPermission.getReadPermission(StepsRecord::class)
         scope.launch {
-            val granted = c.permissionController.getGrantedPermissions()
-            if (granted.contains(permission)) {
-                call.resolve(JSObject().put("granted", true))
-            } else {
-                pendingPermissionCall = call
-                permissionLauncher.launch(setOf(permission))
+            try {
+                val c = client()
+                if (c == null) {
+                    call.reject("Health Connect nu este disponibil pe telefon (status ${sdkStatus()}).")
+                    return@launch
+                }
+                val permission = HealthPermission.getReadPermission(StepsRecord::class)
+                val granted = c.permissionController.getGrantedPermissions()
+                if (granted.contains(permission)) {
+                    call.resolve(JSObject().put("granted", true))
+                } else {
+                    pendingPermissionCall = call
+                    permissionLauncher.launch(setOf(permission))
+                }
+            } catch (t: Throwable) {
+                pendingPermissionCall = null
+                call.reject("Cererea permisiunii pentru pași a eșuat: ${t.message ?: t.javaClass.simpleName}", Exception(t))
             }
         }
     }
@@ -96,11 +96,9 @@ class HealthConnectPlugin : Plugin() {
                         )
                     )
                 )
-                val ret = JSObject()
-                ret.put("steps", result[StepsRecord.COUNT_TOTAL] ?: 0L)
-                call.resolve(ret)
+                call.resolve(JSObject().put("steps", result[StepsRecord.COUNT_TOTAL] ?: 0L))
             } catch (t: Throwable) {
-                call.reject("Nu am putut citi pașii", Exception(t))
+                call.reject("Nu am putut citi pașii: ${t.message ?: t.javaClass.simpleName}", Exception(t))
             }
         }
     }
