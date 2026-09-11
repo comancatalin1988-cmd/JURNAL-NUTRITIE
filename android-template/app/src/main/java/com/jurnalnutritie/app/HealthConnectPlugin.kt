@@ -90,7 +90,7 @@ class HealthConnectPlugin : Plugin() {
                 ret.put("steps", result[StepsRecord.COUNT_TOTAL] ?: 0L)
                 call.resolve(ret)
             } catch (t: Throwable) {
-                call.reject("Nu am putut citi pașii", t)
+                call.reject("Nu am putut citi pașii", Exception(t))
             }
         }
     }
