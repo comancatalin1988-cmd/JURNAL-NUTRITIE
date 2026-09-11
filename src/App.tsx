@@ -171,12 +171,13 @@ export default function App() {
   }
 
   async function syncHealth() {
-    const steps = await readTodaySteps();
-    if (steps == null) {
-      alert("Health Connect nu este disponibil sau permisiunea pentru pași nu a fost acordată.");
-      return;
+    try {
+      const steps = await readTodaySteps();
+      setState(s => ({...s, steps, stepsSource:"health_connect"}));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      alert(message || "Health Connect nu a putut fi accesat.");
     }
-    setState(s => ({...s, steps, stepsSource:"health_connect"}));
   }
 
   function addEntry() {
