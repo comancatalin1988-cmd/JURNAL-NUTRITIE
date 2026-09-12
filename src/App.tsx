@@ -380,7 +380,7 @@ export default function App() {
         </>}
       </section>
 
-      <footer>Datele Health Connect trimise în cloud: doar totalul zilnic de pași.</footer>
+      <footer>Datele Health Connect trimise în cloud: doar totalul zilnic de pași.<br />Versiunea aplicației: 1.3</footer>
     </main>
   );
 }
