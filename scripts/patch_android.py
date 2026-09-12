@@ -76,3 +76,21 @@ if "ViewPermissionUsageActivity" not in manifest:
 """
     manifest = manifest.replace("</application>", permission_usage_alias + "    </application>", 1)
     manifest_file.write_text(manifest)
+
+# Android 14+ requires a permission-usage activity for Health Connect apps.
+manifest = manifest_file.read_text()
+if "ViewPermissionUsageActivity" not in manifest:
+    permission_usage = """
+        <activity-alias
+            android:name=".ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+"""
+    manifest = manifest.replace("</application>", permission_usage + "    </application>", 1)
+    manifest_file.write_text(manifest)
