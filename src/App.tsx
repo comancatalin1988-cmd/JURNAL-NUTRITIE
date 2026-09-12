@@ -22,6 +22,50 @@ type LocalState = {
   entries: FoodEntry[];
 };
 
+type PeriodSummary = {
+  days: number;
+  calories: number;
+  protein: number;
+  steps: number;
+};
+
+function dateKey(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function summarizePeriod(start: Date, end: Date, currentDate: string, currentState: LocalState): PeriodSummary {
+  const summary: PeriodSummary = { days: 0, calories: 0, protein: 0, steps: 0 };
+  const cursor = new Date(start);
+  cursor.setHours(0, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(0, 0, 0, 0);
+
+  while (cursor <= last) {
+    const day = dateKey(cursor);
+    let saved: LocalState | null = day === currentDate ? currentState : null;
+    if (!saved) {
+      const raw = localStorage.getItem(`jurnal:${day}`);
+      if (raw) {
+        try { saved = JSON.parse(raw) as LocalState; } catch { saved = null; }
+      }
+    }
+
+    if (saved && (saved.entries.length > 0 || saved.steps > 0)) {
+      summary.days += 1;
+      summary.steps += Number(saved.steps || 0);
+      for (const entry of saved.entries) {
+        summary.calories += Number(entry.calories || 0);
+        summary.protein += Number(entry.protein_g || 0);
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return summary;
+}
+
 const DEFAULT: LocalState = {
   calorieGoal: 1800,
   proteinGoal: 160,
@@ -231,6 +275,17 @@ export default function App() {
     setSyncStatus("local");
   }
 
+  const history = useMemo(() => {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - 6);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    return {
+      week: summarizePeriod(weekStart, now, date, state),
+      month: summarizePeriod(monthStart, now, date, state)
+    };
+  }, [state, date]);
+
   const remaining = state.calorieGoal - totals.calories;
 
   return (
@@ -264,6 +319,20 @@ export default function App() {
         <input type="number" value={state.steps} onChange={e => setState(s => ({...s, steps:Number(e.target.value||0), stepsSource:"manual"}))} />
         {isNativeAndroid() && <button onClick={syncHealth}>Sincronizează Health Connect</button>}
         {!isNativeAndroid() && <div className="muted small">În browser pașii se introduc manual. În aplicația Android se citesc din Health Connect.</div>}
+      </section>
+
+      <section className="card">
+        <h2>Evidență</h2>
+        {(["week", "month"] as const).map(period => {
+          const item = history[period];
+          const label = period === "week" ? "Ultimele 7 zile" : "Luna curentă";
+          return <div className="entry" key={period}>
+            <div>
+              <b>{label}</b>
+              <span>{item.days} zile înregistrate · {Math.round(item.calories / Math.max(1, item.days))} kcal/zi · {Math.round(item.protein / Math.max(1, item.days))} g proteine/zi · {Math.round(item.steps).toLocaleString("ro-RO")} pași total</span>
+            </div>
+          </div>;
+        })}
       </section>
 
       <section className="card">
