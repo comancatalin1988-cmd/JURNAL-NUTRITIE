@@ -79,6 +79,33 @@ export default function App() {
   }, [state, date]);
 
   useEffect(() => {
+    let active = true;
+
+    const syncStepsSilently = async () => {
+      if (!isNativeAndroid()) return;
+      try {
+        const steps = await readTodaySteps();
+        if (active) {
+          setState(s => ({...s, steps, stepsSource:"health_connect"}));
+        }
+      } catch {
+        // Manual sync remains available if Health Connect needs user attention.
+      }
+    };
+
+    void syncStepsSilently();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void syncStepsSilently();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
     supabase.auth.getSession().then(({data}) => setSessionEmail(data.session?.user.email ?? null));
     const {data:{subscription}} = supabase.auth.onAuthStateChange((_e, session) => {
       setSessionEmail(session?.user.email ?? null);
